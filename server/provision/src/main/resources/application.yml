@@ -36,3 +36,6 @@ logging:
     level:
         org.springframework.integration: DEBUG
         org.zeromq: DEBUG
+
+zeromq:
+    port: 5555

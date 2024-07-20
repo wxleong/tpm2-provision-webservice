@@ -12,7 +12,8 @@ public class ZeroMqService {
     @Autowired
     private ZeroMqConfig zeroMqConfig;
 
-    /*@Scheduled(fixedRate = 1000)
+    /* Self-test
+    @Scheduled(fixedRate = 1000)
     public void sendMessage() {
         String topic = "topic";
         String message = "Broadcast from Spring Integration";

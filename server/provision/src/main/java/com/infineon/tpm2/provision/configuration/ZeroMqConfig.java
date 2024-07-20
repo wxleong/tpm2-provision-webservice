@@ -1,5 +1,6 @@
 package com.infineon.tpm2.provision.configuration;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.integration.channel.PublishSubscribeChannel;
@@ -10,8 +11,12 @@ import org.zeromq.SocketType;
 import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
 
+import java.time.Duration;
+
 @Configuration
 public class ZeroMqConfig {
+    @Value("${zeromq.port}")
+    private String port;
 
     @Bean
     ZContext zContext() {
@@ -34,8 +39,8 @@ public class ZeroMqConfig {
         return IntegrationFlow
                 .from(ZeroMq
                         .inboundChannelAdapter(zContext(), SocketType.SUB)
-                        .connectUrl("tcp://127.0.0.1:5555")
-                        //.consumeDelay(Duration.ofMillis(100))
+                        .connectUrl("tcp://127.0.0.1:" + port)
+                        .consumeDelay(Duration.ofMillis(100))
                         .receiveRaw(true))
                 .channel(subscribeChannel())
                 /*.transform(Transformers.objectToString())
@@ -48,7 +53,7 @@ public class ZeroMqConfig {
     @Bean
     ZMQ.Socket publisherSocket() {
         ZMQ.Socket pubSock = zContext().createSocket(SocketType.PUB);
-        pubSock.bind("tcp://127.0.0.1:5555");
+        pubSock.bind("tcp://127.0.0.1:" + port);
         return pubSock;
     }
 
