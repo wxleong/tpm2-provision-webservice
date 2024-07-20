@@ -2,8 +2,7 @@ package com.infineon.tpm2.provision.configuration;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.integration.channel.DirectChannel;
-import org.springframework.integration.config.EnableIntegration;
+import org.springframework.integration.channel.PublishSubscribeChannel;
 import org.springframework.integration.dsl.IntegrationFlow;
 import org.springframework.integration.zeromq.dsl.ZeroMq;
 import org.springframework.messaging.MessageChannel;
@@ -12,16 +11,7 @@ import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
 
 @Configuration
-@EnableIntegration
 public class ZeroMqConfig {
-
-    public static final String TOPIC_TPM2_RESPONSE = "tpm2resp:";
-    public static final String TOPIC_TPM2_COMMAND = "tpm2cmd:";
-
-    @Bean
-    public MessageChannel subscribeChannel() {
-        return new DirectChannel();
-    }
 
     @Bean
     ZContext zContext() {
@@ -29,18 +19,22 @@ public class ZeroMqConfig {
         return context;
     }
 
+    @Bean
+    public MessageChannel subscribeChannel() {
+        return new PublishSubscribeChannel();
+    }
+
     /**
-     * Redirect message flow from ZeroMqChannel to subscribeChannel
-     * @param context
+     * Redirect the message flow from ZeroMqChannel to subscribeChannel.
+     * Use @ServiceActivator to register the handler for receiving messages.
      * @return
      */
     @Bean
-    public IntegrationFlow inFlow(ZContext context) {
+    public IntegrationFlow inFlow() {
         return IntegrationFlow
                 .from(ZeroMq
-                        .inboundChannelAdapter(context, SocketType.SUB)
+                        .inboundChannelAdapter(zContext(), SocketType.SUB)
                         .connectUrl("tcp://127.0.0.1:5555")
-                        .topics(TOPIC_TPM2_COMMAND, TOPIC_TPM2_RESPONSE)
                         //.consumeDelay(Duration.ofMillis(100))
                         .receiveRaw(true))
                 .channel(subscribeChannel())
@@ -52,13 +46,13 @@ public class ZeroMqConfig {
     }
 
     @Bean
-    ZMQ.Socket publisherSocket(ZContext zContext) {
-        ZMQ.Socket pubSock = zContext.createSocket(SocketType.PUB);
+    ZMQ.Socket publisherSocket() {
+        ZMQ.Socket pubSock = zContext().createSocket(SocketType.PUB);
         pubSock.bind("tcp://127.0.0.1:5555");
         return pubSock;
     }
 
-    public static void publish(ZMQ.Socket sock, String message) {
-        sock.send(TOPIC_TPM2_RESPONSE + " " + message);
+    public void publish(String topic, String message) {
+        publisherSocket().send(topic + " " + message);
     }
 }
