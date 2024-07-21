@@ -38,4 +38,7 @@ logging:
         org.zeromq: DEBUG
 
 zeromq:
-    port: 5555
+    publisher:
+        port: 6001
+    subscriber:
+        port: 6002

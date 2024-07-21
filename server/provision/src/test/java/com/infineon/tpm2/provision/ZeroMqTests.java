@@ -8,8 +8,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.integration.dsl.IntegrationFlow;
 import org.springframework.integration.dsl.Transformers;
 import org.springframework.integration.dsl.context.IntegrationFlowContext;
+import org.springframework.integration.zeromq.channel.ZeroMqChannel;
 import org.springframework.messaging.Message;
-import org.springframework.messaging.MessageChannel;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.concurrent.BlockingQueue;
@@ -22,7 +22,7 @@ public class ZeroMqTests {
     @Autowired
     private ZeroMqConfig zeroMqConfig;
     @Autowired
-    private MessageChannel subscribeChannel;
+    private ZeroMqChannel zeroMqPubSubChannel;
     @Autowired
     IntegrationFlowContext integrationFlowContext;
 
@@ -34,7 +34,7 @@ public class ZeroMqTests {
 
         IntegrationFlow consumerFlow =
             IntegrationFlow
-                .from(subscribeChannel)
+                .from(zeroMqPubSubChannel)
                 .transform(Transformers.objectToString())
                 .handle(messages::offer)
                 .get();
@@ -42,7 +42,7 @@ public class ZeroMqTests {
 
         zeroMqConfig.publish(topic, message);
         Message<?> receivedMessage = messages.poll(10, TimeUnit.SECONDS);
-        Assertions.assertEquals("[ " + topic + " " + message + " ]", receivedMessage.getPayload());
+        Assertions.assertEquals(topic + " " + message, receivedMessage.getPayload());
 
         integrationFlowContext
             .getRegistry()

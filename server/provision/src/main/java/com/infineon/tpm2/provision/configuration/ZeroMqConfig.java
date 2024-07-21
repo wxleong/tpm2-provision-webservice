@@ -3,20 +3,21 @@ package com.infineon.tpm2.provision.configuration;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.integration.channel.PublishSubscribeChannel;
-import org.springframework.integration.dsl.IntegrationFlow;
-import org.springframework.integration.zeromq.dsl.ZeroMq;
-import org.springframework.messaging.MessageChannel;
-import org.zeromq.SocketType;
+import org.springframework.integration.support.MessageBuilder;
+import org.springframework.integration.zeromq.ZeroMqProxy;
+import org.springframework.integration.zeromq.channel.ZeroMqChannel;
 import org.zeromq.ZContext;
-import org.zeromq.ZMQ;
 
 import java.time.Duration;
 
 @Configuration
 public class ZeroMqConfig {
-    @Value("${zeromq.port}")
-    private String port;
+
+    @Value("${zeromq.publisher.port}")
+    private int frontendPort;
+
+    @Value("${zeromq.subscriber.port}")
+    private int backendPort;
 
     @Bean
     ZContext zContext() {
@@ -25,39 +26,22 @@ public class ZeroMqConfig {
     }
 
     @Bean
-    public MessageChannel subscribeChannel() {
-        return new PublishSubscribeChannel();
+    ZeroMqProxy zeroMqProxy() {
+        ZeroMqProxy proxy = new ZeroMqProxy(zContext(), ZeroMqProxy.Type.SUB_PUB);
+        proxy.setExposeCaptureSocket(true);
+        proxy.setFrontendPort(frontendPort);
+        proxy.setBackendPort(backendPort);
+        return proxy;
     }
-
-    /**
-     * Redirect the message flow from ZeroMqChannel to subscribeChannel.
-     * Use @ServiceActivator to register the handler for receiving messages.
-     * @return
-     */
     @Bean
-    public IntegrationFlow inFlow() {
-        return IntegrationFlow
-                .from(ZeroMq
-                        .inboundChannelAdapter(zContext(), SocketType.SUB)
-                        .connectUrl("tcp://127.0.0.1:" + port)
-                        .consumeDelay(Duration.ofMillis(100))
-                        .receiveRaw(true))
-                .channel(subscribeChannel())
-                /*.transform(Transformers.objectToString())
-                  .handle(message -> {
-                    System.out.println("Received message: " + message);
-                })*/
-                .get();
-    }
-
-    @Bean
-    ZMQ.Socket publisherSocket() {
-        ZMQ.Socket pubSock = zContext().createSocket(SocketType.PUB);
-        pubSock.bind("tcp://127.0.0.1:" + port);
-        return pubSock;
+    ZeroMqChannel zeroMqPubSubChannel(ZContext context) {
+        ZeroMqChannel channel = new ZeroMqChannel(context, true);
+        channel.setConnectUrl("tcp://localhost:" + frontendPort + ":" + backendPort);
+        channel.setConsumeDelay(Duration.ofMillis(100));
+        return channel;
     }
 
     public void publish(String topic, String message) {
-        publisherSocket().send(topic + " " + message);
+        zeroMqPubSubChannel(zContext()).send(MessageBuilder.withPayload(topic + " " + message).setHeader("topic", topic).build());
     }
 }
