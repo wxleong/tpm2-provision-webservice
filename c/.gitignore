@@ -35,8 +35,9 @@
 *.i*86
 *.x86_64
 *.hex
-zmq_receiver
-zmq_sender
+receiver
+sender
+transceiver
 
 # Debug files
 *.dSYM/
