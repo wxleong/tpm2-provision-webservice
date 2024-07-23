@@ -38,8 +38,8 @@ int main(void) {
 
     // Receive messages
     while (1) {
-        char buffer[256];
-        int size = zmq_recv(socket, buffer, 255, 0);
+        char buffer[2048];
+        int size = zmq_recv(socket, buffer, sizeof(buffer), 0);
         if (size == -1) {
             printf("Error: Could not receive message\n");
             zmq_close(socket);

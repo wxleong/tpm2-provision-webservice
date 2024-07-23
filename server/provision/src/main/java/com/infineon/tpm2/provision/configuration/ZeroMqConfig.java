@@ -3,12 +3,9 @@ package com.infineon.tpm2.provision.configuration;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.integration.support.MessageBuilder;
-import org.springframework.integration.zeromq.ZeroMqProxy;
-import org.springframework.integration.zeromq.channel.ZeroMqChannel;
+import org.zeromq.SocketType;
 import org.zeromq.ZContext;
-
-import java.time.Duration;
+import org.zeromq.ZMQ;
 
 @Configuration
 public class ZeroMqConfig {
@@ -20,28 +17,79 @@ public class ZeroMqConfig {
     private int backendPort;
 
     @Bean
-    ZContext zContext() {
+    ZContext proxyZContext() {
         ZContext context = new ZContext();
         return context;
     }
 
     @Bean
-    ZeroMqProxy zeroMqProxy() {
-        ZeroMqProxy proxy = new ZeroMqProxy(zContext(), ZeroMqProxy.Type.SUB_PUB);
-        proxy.setExposeCaptureSocket(true);
-        proxy.setFrontendPort(frontendPort);
-        proxy.setBackendPort(backendPort);
-        return proxy;
+    ZContext pubZContext() {
+        ZContext context = new ZContext();
+        return context;
     }
+
     @Bean
-    ZeroMqChannel zeroMqPubSubChannel(ZContext context) {
-        ZeroMqChannel channel = new ZeroMqChannel(context, true);
-        channel.setConnectUrl("tcp://localhost:" + frontendPort + ":" + backendPort);
-        channel.setConsumeDelay(Duration.ofMillis(100));
-        return channel;
+    ZContext subZContext() {
+        ZContext context = new ZContext();
+        return context;
+    }
+    /**
+     * For setting up a forwarder.
+     * When the frontend is a ZMQ_XSUB socket, and the backend is a ZMQ_XPUB socket,
+     * the proxy shall act as a message forwarder that collects messages from a
+     * set of publishers and forwards these to a set of subscribers.
+     * @return
+     */
+    @Bean
+    public ZMQ.Socket proxyFrontendSocket() {
+        ZMQ.Socket socket = proxyZContext().createSocket(SocketType.SUB);
+        socket.bind("tcp://localhost:" + frontendPort);
+        socket.subscribe(ZMQ.SUBSCRIPTION_ALL);
+        return socket;
+    }
+
+    /**
+     * For setting up a forwarder.
+     * When the frontend is a ZMQ_XSUB socket, and the backend is a ZMQ_XPUB socket,
+     * the proxy shall act as a message forwarder that collects messages from a
+     * set of publishers and forwards these to a set of subscribers.
+     * @return
+     */
+    @Bean
+    public ZMQ.Socket proxyBackendSocket() {
+        ZMQ.Socket socket = proxyZContext().createSocket(SocketType.PUB);
+        socket.bind("tcp://localhost:" + backendPort);
+        return socket;
+    }
+
+    /**
+     * A socket for publishing message.
+     */
+    @Bean
+    public ZMQ.Socket publishSocket() {
+        ZMQ.Socket socket = proxyZContext().createSocket(SocketType.PUB);
+        socket.connect("tcp://localhost:" + frontendPort);
+        return socket;
+    }
+
+    /**
+     * A socket for subscribing to specific topics.
+     */
+    @Bean
+    public ZMQ.Socket subscriptionSocket() {
+        ZMQ.Socket socket = proxyZContext().createSocket(SocketType.SUB);
+        socket.connect("tcp://localhost:" + backendPort);
+        //socket.subscribe(ZMQ.SUBSCRIPTION_ALL);
+        socket.subscribe("server");
+        return socket;
     }
 
     public void publish(String topic, String message) {
-        zeroMqPubSubChannel(zContext()).send(MessageBuilder.withPayload(topic + " " + message).setHeader("topic", topic).build());
+        publishSocket().send(topic + " " + message);
+    }
+
+    public String receive() {
+        return subscriptionSocket().recvStr();
     }
 }
+
