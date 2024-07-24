@@ -47,9 +47,11 @@ public class ZeroMqService {
     }
 
     private void onMessageReceived(String message) {
+        String tpm_response = "80010000000a00000100"; /* For testing only */
+
         System.out.println("Received : " + message);
         String[] parts = message.split(" ", 3);
-        zeroMqConfig.publish(parts[1], "80010000000a00000100");
+        zeroMqConfig.publish(parts[1], parts[0], tpm_response);
     }
 
     /* Self-test */

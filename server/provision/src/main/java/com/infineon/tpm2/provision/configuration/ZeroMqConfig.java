@@ -84,8 +84,10 @@ public class ZeroMqConfig {
         return socket;
     }
 
-    public void publish(String topic, String message) {
-        publishSocket().send(topic + " " + message);
+    public void publish(String dest_topic, String src_topic, String message) {
+        String output = dest_topic + " " + src_topic + " " + message;
+        System.out.println("To send : " + output);
+        publishSocket().send(output);
     }
 
     public String receive() {
